@@ -79,6 +79,9 @@ async function newPage(url) {
   await cdp.open();
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
+  // --window-size gives a 1280x577 viewport in this headless Chrome, so
+  // force the exact 1280x720 capture viewport the kit's screenshots use.
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
   return cdp;
 }
 
@@ -129,6 +132,11 @@ async function main() {
   // ---- 4. Live play: 3 rounds through the real sim ----
   cdp = await newPage(`${BASE}/`);
   await sleep(2000);
+  // Freeze the live loop before scripted play: the driver advances the sim
+  // itself through step(), so wall-clock rAF steps between commands cannot
+  // change bot-combat outcomes (two baseline runs each failed a different
+  // planted-round check that way). HUD and rendering keep running.
+  await cdp.eval(`window.__fps01.freeze(true)`);
   // Atomic aim+fire: pick nearest ANVIL bot with clear LOS from the player's
   // eye to the bot's head, set the look, fire in the same JS task.
   const shootOnce = `(() => {
@@ -282,6 +290,23 @@ async function main() {
   const planted3 = await cdp.eval(`window.__fps01.state.bomb.state`);
   check('round 3: bomb planted again', planted3 === 'planted', `bomb=${planted3}`);
   await cdp.eval(`window.__fps01.teleport(-20, 0)`);
+  // Scripted defuse setup: the two surviving defenders are placed
+  // mid-rotation, a few metres from the site, and the KITE allies are
+  // pulled back to the west spawn, so this wait tests the defuse itself —
+  // rotate, arrive, 5 s channel, ANVIL wins — instead of re-rolling the
+  // 2v2 mid-map fight, which the allies usually win and which decided
+  // this check by luck (two baseline runs failed two different planted
+  // checks that way). The defuse path is unchanged: the defenders still
+  // walk to the bomb and channel in the open. Mode 'hold' lets the game's
+  // own planted-trigger assign the rotate path; 'rotate' with an empty
+  // path would wrongly flip them to 'defuse' far from the bomb.
+  await cdp.eval(`(() => {
+    const S = window.__fps01.state;
+    const defs = S.bots.filter(b => b.team === 'anvil' && b.alive);
+    defs.forEach((b, i) => { b.x = 13 + i * 2; b.z = -8 + i * 2; b.mode = 'hold'; b.path = []; b.enemy = null; });
+    S.bots.filter(b => b.team === 'kite' && b.alive).forEach(b => { b.x = -20; b.z = 0; b.mode = 'patrol'; b.path = []; b.enemy = null; });
+    return defs.length;
+  })()`);
   const def = await waitRoundEnd(25);
   check('defenders defuse, ANVIL wins round', def.ph === 'over' && def.w === 'anvil' && /DEFUSED/.test(def.r), JSON.stringify(def));
 
