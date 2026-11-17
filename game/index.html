@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MERIDIAN TERMINAL — a three.js tactical FPS</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud" aria-hidden="true">
+  <div id="topbar">
+    <div id="objective">MERIDIAN TERMINAL</div>
+    <div id="timer">00:00</div>
+    <div id="scoreboard">KITE 0 — 0 ANVIL · ROUND 1</div>
+  </div>
+  <div id="banner"></div>
+  <div id="killfeed"></div>
+  <div id="crosshair"><i></i><i></i><i></i><i></i></div>
+  <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
+  <div id="dmg"></div>
+  <div id="bombbar" hidden><span id="bombbar-label">PLANTING…</span><div id="bombbar-track"><div id="bombbar-fill"></div></div></div>
+  <div id="vitals">
+    <div id="hp"><span id="hp-num">100</span><div id="hp-track"><div id="hp-fill"></div></div><span id="armor-num"></span></div>
+    <div id="money">$3000</div>
+  </div>
+  <div id="ammo">
+    <div id="weapon-name">MAUL-12</div>
+    <div id="ammo-line"><span id="ammo-mag">6</span><span id="ammo-reserve">/ 24</span></div>
+    <div id="grenades">○ FLARE-6</div>
+  </div>
+</div>
+
+<div id="buy" hidden>
+  <section class="panel">
+    <h2>BUY PHASE <span id="buy-money">$3000</span></h2>
+    <p class="hint">Keys 1–4 or click to buy. <kbd>Enter</kbd> starts the round early, <kbd>B</kbd> hides this menu.</p>
+    <div id="buy-items"></div>
+  </section>
+</div>
+
+<div id="overlay" class="overlay">
+  <section class="panel" role="dialog" aria-modal="true" aria-labelledby="ov-title">
+    <h1 id="ov-title">MERIDIAN TERMINAL</h1>
+    <p id="ov-copy">KITE attacks, ANVIL defends. Plant the charge at Ticket Hall or Platform — or clear the site by force.</p>
+    <p id="ov-sub"></p>
+    <button id="play" type="button">Click to play</button>
+    <ul class="keys">
+      <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move · <kbd>Mouse</kbd> Look</li>
+      <li><kbd>Click</kbd> Fire · <kbd>R</kbd> Reload · <kbd>G</kbd> Grenade</li>
+      <li><kbd>1</kbd>/<kbd>2</kbd> Rifle / Shotgun · <kbd>E</kbd> Plant / Defuse</li>
+      <li><kbd>Ctrl</kbd> Crouch · <kbd>B</kbd> Buy menu</li>
+    </ul>
+  </section>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.min.js"
+  }
+}
+</script>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
