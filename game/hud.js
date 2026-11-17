@@ -41,6 +41,12 @@ export function createHud() {
     while (refs.feed.children.length > 5) refs.feed.lastChild.remove();
     setTimeout(() => div.remove(), 5200);
   }
+  // The buy menu's own title says BUY PHASE; a banner behind the panel
+  // shows through as a ghost echo of the same words, so hide it here.
+  function hideBanner() {
+    refs.banner.classList.remove('on');
+    clearTimeout(bannerT);
+  }
   function showBanner(text, ms) {
     refs.banner.textContent = text;
     refs.banner.classList.add('on');
@@ -89,6 +95,7 @@ export function createHud() {
     },
     banner: showBanner,
     showBuy(S) {
+      hideBanner();
       refs.buy.hidden = false;
       set(refs.buyMoney, 'buymoney', `$${S.money}`);
       for (const b of refs.buyItems.children) {

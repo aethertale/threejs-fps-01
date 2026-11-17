@@ -97,7 +97,6 @@ function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min((now - lastTime) / 1000, 0.1);
   lastTime = now;
-  if (frozen) { render.renderer.render(render.scene, render.camera); return; }
   const look = input.takeLook();
   if (input.locked || shot) applyLook(S, look.x, look.y);
   if (S.phase === PHASES.LIVE && S.player.alive) {
@@ -107,14 +106,21 @@ function frame(now) {
   }
   prevFiring = input.firing;
   handleKeys();
-  accumulator += dt;
-  let steps = 0;
-  while (accumulator >= STEP && steps < 5) {
-    step(S, input, render, STEP);
-    accumulator -= STEP;
-    steps += 1;
+  // Frozen: the live loop keeps rendering and updating the HUD, but stops
+  // advancing the sim. The headless driver drives the sim itself through
+  // step(), so wall-clock rAF steps between driver commands cannot change
+  // bot-combat outcomes and make a check flaky. Shot mode never runs this
+  // loop at all, so it is unaffected.
+  if (!frozen) {
+    accumulator += dt;
+    let steps = 0;
+    while (accumulator >= STEP && steps < 5) {
+      step(S, input, render, STEP);
+      accumulator -= STEP;
+      steps += 1;
+    }
+    if (accumulator > STEP * 5) accumulator = 0;
   }
-  if (accumulator > STEP * 5) accumulator = 0;
   dispatchEvents(drainEvents(S));
   const p = S.player;
   const def = WEAPONS[p.cur];
@@ -160,17 +166,25 @@ function runShot(name) {
     hud.hideOverlay();
   } else if (name === 'plant') {
     startLive(S);
-    S.player.x = 16.5; S.player.z = -12; S.player.yaw = Math.PI / 2; S.player.pitch = 0;
+    // Stand off the site and look at it: the old spot faced the west wall,
+    // so the frame was a dark wall instead of the site, the decal and the
+    // planting player. Site A centre is (18.5, -12).
+    S.player.x = 14.5; S.player.z = -11;
+    S.player.yaw = Math.atan2(-(18.5 - S.player.x), -(-12 - S.player.z));
+    S.player.pitch = 0;
     S.player.hasRifle = true;
     S.player.weapons.rifle.mag = 18; S.player.weapons.rifle.reserve = 50;
     S.player.cur = 'rifle';
-    S.bomb.plantP = 0.6;
-    S.player.planting = 0.6;
     const ally = S.bots.find((b) => b.team === 'kite');
     ally.x = 13; ally.z = -9; ally.yaw = -Math.PI / 2;
     const foe = S.bots.find((b) => b.team === 'anvil');
     foe.x = 19; foe.z = -8.5; foe.yaw = Math.PI / 2;
     settle(10);
+    // Planting only advances while E is held, so the sim reset it during
+    // settle; set it again here, after the last step, so the progress bar
+    // ("PLANTING CHARGE…" at 60%) is visible in the capture.
+    S.bomb.plantP = 0.6;
+    S.player.planting = 0.6;
     hud.hideOverlay();
   } else if (name === 'result') {
     S.scoreKite = 2; S.scoreAnvil = 1;
@@ -228,6 +242,10 @@ window.__fps01 = {
   keys: input.keys,
   buy(id) { return buy(S, id); },
   live() { if (S.phase === PHASES.BUY) startLive(S); },
+  // Stop the live loop advancing the sim (HUD/render keep running). The
+  // driver calls this before scripted play so only its own step() calls
+  // advance time; see the frozen branch in frame().
+  freeze(v) { frozen = v; },
 };
 
 render.sync(S, 0);

@@ -33,7 +33,7 @@ export function createRenderer(S) {
   const camera = new THREE.PerspectiveCamera(74, window.innerWidth / window.innerHeight, 0.05, 160);
   scene.add(camera);
 
-  scene.add(new THREE.HemisphereLight(0x9fc4cc, 0x1a2024, 1.05));
+  scene.add(new THREE.HemisphereLight(0x9fc4cc, 0x1a2024, 1.2));
   const sun = new THREE.DirectionalLight(0xffd9a0, 1.75);
   sun.position.set(-18, 26, -12);
   sun.castShadow = true;
@@ -151,7 +151,7 @@ export function createRenderer(S) {
   function buildGun(barrelLen, barrelR, stockLen) {
     const g = new THREE.Group();
     const dark = new THREE.MeshStandardMaterial({ color: 0x39434d, roughness: 0.5, metalness: 0.45 });
-    const mid = new THREE.MeshStandardMaterial({ color: 0x6b7a8c, roughness: 0.45, metalness: 0.55 });
+    const mid = new THREE.MeshStandardMaterial({ color: 0x4b565f, roughness: 0.45, metalness: 0.55 });
     const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.11, 0.42), mid);
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(barrelR, barrelR, barrelLen, 10), dark);
     barrel.rotation.x = Math.PI / 2;
@@ -162,24 +162,48 @@ export function createRenderer(S) {
     sight.position.set(0, 0.09, -0.05);
     g.add(receiver, barrel, stock, sight);
     g.position.set(0.24, -0.2, -0.42);
+    g.scale.setScalar(0.85); // keep the viewmodel out of the frame's centre
     camera.add(g);
     return g;
   }
   const vmRifle = buildGun(0.4, 0.025, 0.22);
   const vmShot = buildGun(0.3, 0.045, 0.26);
   vmShot.visible = false;
+  // Muzzle flash: a 4-point starburst drawn once on a canvas and blended
+  // additively, so the flash reads as light. The old solid square plane
+  // spun into a big orange diamond and dominated the combat shot.
+  const flashTex = canvasTexture(128, (g, s) => {
+    const c = s / 2;
+    const grad = g.createRadialGradient(c, c, 0, c, c, c);
+    grad.addColorStop(0, 'rgba(255,244,214,1)');
+    grad.addColorStop(0.3, 'rgba(255,196,107,0.95)');
+    grad.addColorStop(0.65, 'rgba(255,138,60,0.4)');
+    grad.addColorStop(1, 'rgba(255,138,60,0)');
+    g.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4;
+      const r = i % 2 === 0 ? c * 0.92 : c * 0.22;
+      const x = c + Math.cos(a) * r, y = c + Math.sin(a) * r;
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.closePath();
+    g.fillStyle = grad;
+    g.fill();
+  });
   const flash = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.26, 0.26),
-    new THREE.MeshBasicMaterial({ color: 0xffc46b, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }),
+    new THREE.PlaneGeometry(0.22, 0.22),
+    new THREE.MeshBasicMaterial({ map: flashTex, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
   );
   flash.position.set(0.24, -0.17, -0.95);
+  flash.rotation.z = 0.3;
   flash.visible = false;
   camera.add(flash);
   const flashLight = new THREE.PointLight(0xffc46b, 0, 6);
   flashLight.position.set(0.24, -0.16, -0.6);
   camera.add(flashLight);
   // Small always-on camera light so the viewmodel stays readable in the dusk.
-  const vmLight = new THREE.PointLight(0xfff2dd, 2.2, 2.5);
+  // Kept dim: a bright light blew the pale receiver out to a white slab.
+  const vmLight = new THREE.PointLight(0xfff2dd, 1.1, 2.5);
   vmLight.position.set(0.2, 0.15, -0.3);
   camera.add(vmLight);
 
@@ -245,7 +269,6 @@ export function createRenderer(S) {
       vm.rotation.x = kick * 2.4 - (w && w.reload > 0 ? 0.5 : 0);
       flashT = Math.max(0, flashT - dt);
       flash.visible = flashT > 0;
-      flash.rotation.z = flashT * 40;
       flashLight.intensity = flashT > 0 ? 14 : 0;
       // Bomb mesh: shown dropped or planted; blinks faster as the timer runs out.
       const B = S.bomb;
